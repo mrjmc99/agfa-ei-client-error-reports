@@ -12,11 +12,9 @@ import configparser
 # Load configuration from the file
 config = configparser.ConfigParser()
 config.read("error-report-config.ini")
-#print(config.sections())
 #agfa variables
 
 error_report_repo = config.get("Agfa", "error_report_repo")
-#test source folder, for prod change back to "E:\\Agfa\\error-report"
 source_folder = config.get("Agfa", "source_folder")
 search_term = config.get("Agfa", "search_term")
 
