@@ -1,5 +1,3 @@
-Sure, here's a sample README.md for your script:
-
 ```markdown
 # Error Report Processing Script
 
