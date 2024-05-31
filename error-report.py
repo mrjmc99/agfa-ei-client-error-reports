@@ -20,7 +20,7 @@ search_term = config.get("Agfa", "search_term")
 
 #email variables
 smtp_server = config.get("Email", "smtp_server")
-smtp_port = config.get("Email", "smtp_port")
+smtp_port = int(config.get("Email", "smtp_port"))
 smtp_username = config.get("Email", "smtp_username")
 smtp_password = config.get("Email", "smtp_password")
 smtp_from_domain = config.get("Email", "smtp_from_domain")
@@ -48,6 +48,12 @@ business_hours_impact = config.get("ServiceNow", "business_hours_impact")
 excluded_computer_names_path = config.get("Excludeditems", "excluded_computer_names_path")
 excluded_user_codes_path = config.get("Excludeditems", "excluded_user_codes_path")
 
+# Ensure excluded items files exist, create them if they don't
+if not os.path.exists(excluded_computer_names_path):
+    open(excluded_computer_names_path, 'w').close()
+
+if not os.path.exists(excluded_user_codes_path):
+    open(excluded_user_codes_path, 'w').close()
 
 
 # Get the current time and day of the week
@@ -90,6 +96,7 @@ def send_email(smtp_recipients, subject, body):
         print(f"Email sent to {', '.join(smtp_recipients)}")
     except Exception as e:
         print(f"Email sending failed to {', '.join(smtp_recipients)}: {e}")
+
 
 def create_service_now_incident(summary, description, affected_user_id, configuration_item, external_unique_id, urgency, impact, device_name, ticket_type):
     incident_api_url = f"https://{service_now_instance}/api/now/table/{service_now_table}"
