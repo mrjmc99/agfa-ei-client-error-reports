@@ -12,13 +12,13 @@ import configparser
 # Load configuration from the file
 config = configparser.ConfigParser()
 config.read("error-report-config.ini")
-#agfa variables
+# agfa variables
 
 error_report_repo = config.get("Agfa", "error_report_repo")
 source_folder = config.get("Agfa", "source_folder")
 search_term = config.get("Agfa", "search_term")
 
-#email variables
+# email variables
 smtp_server = config.get("Email", "smtp_server")
 smtp_port = int(config.get("Email", "smtp_port"))
 smtp_username = config.get("Email", "smtp_username")
@@ -28,7 +28,7 @@ smtp_from = f"{os.environ['COMPUTERNAME']}@{smtp_from_domain}"
 smtp_recipients_string = config.get("Email", "smtp_recipients")
 smtp_recipients = smtp_recipients_string.split(",")
 
-#service now variables
+# service now variables
 service_now_instance = config.get("ServiceNow", "instance")
 service_now_table = config.get("ServiceNow", "table")
 service_now_api_user = config.get("ServiceNow", "api_user")
@@ -46,7 +46,7 @@ after_hours_impact = config.get("ServiceNow", "after_hours_impact")
 business_hours_urgency = config.get("ServiceNow", "business_hours_urgency")
 business_hours_impact = config.get("ServiceNow", "business_hours_impact")
 
-#excluded items variables
+# excluded items variables
 excluded_computer_names_path = config.get("Excludeditems", "excluded_computer_names_path")
 excluded_user_codes_path = config.get("Excludeditems", "excluded_user_codes_path")
 
@@ -56,7 +56,6 @@ if not os.path.exists(excluded_computer_names_path):
 
 if not os.path.exists(excluded_user_codes_path):
     open(excluded_user_codes_path, 'w').close()
-
 
 # Get the current time and day of the week
 current_time = datetime.now().time()
@@ -68,7 +67,7 @@ business_hours_end = datetime.strptime(business_hours_end_time, "%H:%M:%S").time
 
 # Set default values
 urgency = after_hours_urgency  # Default value for after hours and weekends
-impact = after_hours_urgency   # Default value for after hours and weekends       
+impact = after_hours_urgency  # Default value for after hours and weekends
 
 # Check if it's business hours
 if business_hours_start <= current_time <= business_hours_end and current_day < 5:  # Monday to Friday
@@ -79,10 +78,11 @@ if business_hours_start <= current_time <= business_hours_end and current_day < 
 def read_excluded_values(file_path):
     with open(file_path, "r") as file:
         return [line.strip() for line in file.readlines()]
-        
+
+
 # Load excluded values from text files
 excluded_computer_names = read_excluded_values(excluded_computer_names_path)
-excluded_user_codes = read_excluded_values(excluded_user_codes_path)        
+excluded_user_codes = read_excluded_values(excluded_user_codes_path)
 
 
 def send_email(smtp_recipients, subject, body):
@@ -100,7 +100,8 @@ def send_email(smtp_recipients, subject, body):
         print(f"Email sending failed to {', '.join(smtp_recipients)}: {e}")
 
 
-def create_service_now_incident(summary, description, affected_user_id, configuration_item, external_unique_id, urgency, impact, device_name, ticket_type):
+def create_service_now_incident(summary, description, affected_user_id, configuration_item, external_unique_id, urgency,
+                                impact, device_name, ticket_type):
     service_now_api_url = f"https://{service_now_instance}/api/now/table/{service_now_table}"
 
     headers = {
@@ -125,7 +126,7 @@ def create_service_now_incident(summary, description, affected_user_id, configur
         response = requests.post(
             service_now_api_url,
             headers=headers,
-            auth=(service_now_api_user, service_now_api_password),      
+            auth=(service_now_api_user, service_now_api_password),
             json=payload,
         )
 
@@ -194,10 +195,7 @@ def create_service_now_request(summary, description, affected_user_id, ):
     return None, None
 
 
-
 def attach_file_to_incident(incident_number, file_path):
-    
-
     attachment_api_url = f"https://{service_now_instance}/api/now/attachment/upload"
 
     headers = {
@@ -237,7 +235,6 @@ def attach_file_to_incident(incident_number, file_path):
         print(f"An error occurred while attaching the file to ServiceNow incident: {e}")
 
 
-
 if not os.path.exists(error_report_repo):
     os.makedirs(error_report_repo)
 
@@ -247,7 +244,7 @@ for root, _, files in os.walk(source_folder):
             source_path = os.path.join(root, file)
             relative_path = os.path.relpath(source_path, source_folder)
             destination_path = os.path.join(error_report_repo, relative_path)
-            
+
             destination_directory = os.path.dirname(destination_path)
             os.makedirs(destination_directory, exist_ok=True)
             if os.path.exists(destination_path):
@@ -284,14 +281,15 @@ for root, _, files in os.walk(source_folder):
                 affected_user_id = user_code
                 device_name = computer_name
                 external_unique_id = str(uuid.uuid4())
-                
+
                 # Check if the item should be excluded
                 if affected_user_id and affected_user_id.lower() in [code.lower() for code in excluded_user_codes] or \
-                   computer_name.lower() in [name.lower() for name in excluded_computer_names]:
-                    print(f"Skipping ServiceNow processing for excluded computer_name or user_code: {computer_name} - {affected_user_id}")
+                        computer_name.lower() in [name.lower() for name in excluded_computer_names]:
+                    print(
+                        f"Skipping ServiceNow processing for excluded computer_name or user_code: {computer_name} - {affected_user_id}")
                     subject = f"Client Error Report for {computer_name} at {local_time_str} (Ticket Exclusion)"
                     send_email(smtp_recipients, subject, body)
-                    continue                  
+                    continue
                 if ticket_type == 'incident':
                     # Create ServiceNow incident and get the incident number
                     ticket_number, sys_id = create_service_now_incident(
@@ -301,7 +299,7 @@ for root, _, files in os.walk(source_folder):
                     )
                 elif ticket_type == 'request':
                     # Create ServiceNow incident and get the incident number
-                    ticket_number, sys_id = create_service_now_incident(
+                    ticket_number, sys_id = create_service_now_request(
                         ticket_summary, ticket_description,
                         affected_user_id
                     )
@@ -314,9 +312,8 @@ for root, _, files in os.walk(source_folder):
                     zip_file_path = destination_path
                     attach_file_to_incident(sys_id, zip_file_path)
                     subject = f"Client Error Report for {computer_name} at {local_time_str} Ticket: {ticket_number}"
-                
-                
-                 #send email
+
+                # send email
                 send_email(smtp_recipients, subject, body)
-                
+
                 sleep(1)  # Introduce a delay of 1 second before working on next error report
