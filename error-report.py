@@ -39,7 +39,6 @@ assignment_group = config.get("ServiceNow", "assignment_group")
 assignee = config.get("ServiceNow", "assignee")
 request_u_description = config.get("ServiceNow", "request_u_description")
 request_catalog_item = config.get("ServiceNow", "request_catalog_item")
-
 business_hours_start_time = config.get("ServiceNow", "business_hours_start_time")
 business_hours_end_time = config.get("ServiceNow", "business_hours_end_time")
 after_hours_urgency = config.get("ServiceNow", "after_hours_urgency")
@@ -102,7 +101,7 @@ def send_email(smtp_recipients, subject, body):
 
 
 def create_service_now_incident(summary, description, affected_user_id, configuration_item, external_unique_id, urgency, impact, device_name, ticket_type):
-    incident_api_url = f"https://{service_now_instance}/api/now/table/{service_now_table}"
+    service_now_api_url = f"https://{service_now_instance}/api/now/table/{service_now_table}"
 
     headers = {
         "Content-Type": "application/json",
@@ -122,16 +121,16 @@ def create_service_now_incident(summary, description, affected_user_id, configur
     }
 
     try:
-        print("Incident Creation Payload:", payload)  # Print payload for debugging
+        print("Ticket Creation Payload:", payload)  # Print payload for debugging
         response = requests.post(
-            incident_api_url,
+            service_now_api_url,
             headers=headers,
             auth=(service_now_api_user, service_now_api_password),      
             json=payload,
         )
 
-        print("Incident Creation Response Status Code:", response.status_code)  # Print status code for debugging
-        print("Incident Creation Response Content:", response.text)  # Print response content for debugging
+        print("Ticket Creation Response Status Code:", response.status_code)  # Print status code for debugging
+        print("Ticket Creation Response Content:", response.text)  # Print response content for debugging
 
         if response.status_code == 201:
             incident_number = response.json().get("result", {}).get("u_task_string")
@@ -148,7 +147,7 @@ def create_service_now_incident(summary, description, affected_user_id, configur
 
 
 def create_service_now_request(summary, description, affected_user_id, ):
-    incident_api_url = f"https://{service_now_instance}/api/now/table/{service_now_table}"
+    service_now_api_url = f"https://{service_now_instance}/api/now/table/{service_now_table}"
 
     headers = {
         "Content-Type": "application/json",
@@ -170,22 +169,22 @@ def create_service_now_request(summary, description, affected_user_id, ):
     }
 
     try:
-        print("Incident Creation Payload:", payload)  # Print payload for debugging
+        print("Ticket Creation Payload:", payload)  # Print payload for debugging
         response = requests.post(
-            incident_api_url,
+            service_now_api_url,
             headers=headers,
             auth=(service_now_api_user, service_now_api_password),
             json=payload,
         )
 
-        print("Incident Creation Response Status Code:", response.status_code)  # Print status code for debugging
-        print("Incident Creation Response Content:", response.text)  # Print response content for debugging
+        print("Ticket Creation Response Status Code:", response.status_code)  # Print status code for debugging
+        print("Ticket Creation Response Content:", response.text)  # Print response content for debugging
 
         if response.status_code == 201:
-            incident_number = response.json().get("result", {}).get("u_task_string")
+            ticket_number = response.json().get("result", {}).get("u_task_string")
             sys_id = response.json().get('result', {}).get('u_task', {}).get('value')
-            print(f"ServiceNow incident created successfully: {incident_number} {sys_id}")
-            return incident_number, sys_id
+            print(f"ServiceNow Request created successfully: {ticket_number} {sys_id}")
+            return ticket_number, sys_id
         else:
             print(f"Failed to create ServiceNow incident. Response: {response.text}")
 
