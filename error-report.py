@@ -31,6 +31,7 @@ smtp_recipients = smtp_recipients_string.split(",")
 # service now variables
 service_now_instance = config.get("ServiceNow", "instance")
 service_now_table = config.get("ServiceNow", "table")
+service_now_attachment_table = config.get("ServiceNow", "attachment_table")
 service_now_api_user = config.get("ServiceNow", "api_user")
 service_now_api_password = config.get("ServiceNow", "api_password")
 ticket_type = config.get("ServiceNow", "ticket_type")
@@ -159,14 +160,18 @@ def create_service_now_request(summary, description, affected_user_id, ):
         "u_type": 'request',
         "u_requested_by_user_id": affected_user_id,
         "u_affected_user_id": affected_user_id,
-        "u_phone": '123-456-7890',
-        "u_email": 'pacstest@adventhealth.com',
+        #"u_phone": '123-456-7890',
+        #"u_email": 'pacstest@adventhealth.com',
         "u_catalog_item": request_catalog_item,
         "u_description": request_u_description,
-        "u_variables": f"short_description::{summary}::description::{description}::phone::123-456-7890::fax::value::affected_user"
-                       f"::{affected_user_id}::email::pacstest@adventhealth.com::requester::{affected_user_id}::requester_location"
-                       f"::::affected_user_location::"
-
+        #"u_variables": f"short_description::{summary}::description::{description}::phone::123-456-7890::fax::::affected_user"
+        #               f"::{affected_user_id}::email::::requester::{affected_user_id}::requester_location"
+        #               f"::f4fc4d43dbc3a200ec73f81ebf961972::affected_user_location::f4fc4d43dbc3a200ec73f81ebf961972"
+        "u_variables": f"assignment_group::{assignment_group}::priority::3::assignee"
+                       f"::::short_description::{summary}"
+                       f"::description::{description}"
+                       f"::requester::::affected_user::::email::"
+                       f"::phone::::requester_location::::affected_user_location::::"
     }
 
     try:
@@ -195,16 +200,17 @@ def create_service_now_request(summary, description, affected_user_id, ):
     return None, None
 
 
-def attach_file_to_incident(incident_number, file_path):
-    attachment_api_url = f"https://{service_now_instance}/api/now/attachment/upload"
+def attach_file_to_ticket(sys_id, file_path):
+    attachment_api_url = f"https://{service_now_instance}/api/now/attachment/file"
 
     headers = {
         "Accept": "application/json",
+        "Content-Type": "application/zip"
     }
 
     data = {
-        "table_name": service_now_table,
-        "table_sys_id": incident_number,
+        "table_name": service_now_attachment_table,
+        "table_sys_id": sys_id,
     }
 
     files = {
@@ -227,12 +233,12 @@ def attach_file_to_incident(incident_number, file_path):
         print("Attachment response text:", attachment_response.text)
 
         if attachment_response.status_code == 201:
-            print("File attached to ServiceNow incident successfully")
+            print("File attached to ServiceNow Ticket successfully")
         else:
-            print(f"Failed to attach file to ServiceNow incident. Response: {attachment_response.text}")
+            print(f"Failed to attach file to ServiceNow Ticket. Response: {attachment_response.text}")
 
     except requests.exceptions.RequestException as e:
-        print(f"An error occurred while attaching the file to ServiceNow incident: {e}")
+        print(f"An error occurred while attaching the file to ServiceNow Ticket: {e}")
 
 
 if not os.path.exists(error_report_repo):
@@ -275,7 +281,7 @@ for root, _, files in os.walk(source_folder):
                 local_time = datetime.fromtimestamp(original_timestamp)
                 local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
                 subject = f"Client Error Report for {computer_name} at {local_time_str} (Ticket Creation Failure)"
-                body = f"Content of comment.txt:\n{comment_content}\nUserID: {user_code}\nWorkstation: {computer_name}"
+                body = f"EI Error Report Comment:\n{comment_content}\nUserID: {user_code}\nWorkstation: {computer_name}"
                 ticket_summary = f"Client Error Report for {computer_name} at {local_time_str}"
                 ticket_description = body
                 affected_user_id = user_code
@@ -308,9 +314,9 @@ for root, _, files in os.walk(source_folder):
                     print('invalid ticket type')
 
                 # Attach the zip file to the ServiceNow incident
-                if ticket_type == 'incident' and ticket_number and sys_id:
+                if ticket_number and sys_id:
                     zip_file_path = destination_path
-                    attach_file_to_incident(sys_id, zip_file_path)
+                    attach_file_to_ticket(sys_id, zip_file_path)
                     subject = f"Client Error Report for {computer_name} at {local_time_str} Ticket: {ticket_number}"
 
                 # send email
