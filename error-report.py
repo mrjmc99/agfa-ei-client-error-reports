@@ -37,6 +37,9 @@ ticket_type = config.get("ServiceNow", "ticket_type")
 configuration_item = config.get("ServiceNow", "configuration_item")
 assignment_group = config.get("ServiceNow", "assignment_group")
 assignee = config.get("ServiceNow", "assignee")
+request_u_description = config.get("ServiceNow", "request_u_description")
+request_catalog_item = config.get("ServiceNow", "request_catalog_item")
+
 business_hours_start_time = config.get("ServiceNow", "business_hours_start_time")
 business_hours_end_time = config.get("ServiceNow", "business_hours_end_time")
 after_hours_urgency = config.get("ServiceNow", "after_hours_urgency")
@@ -144,6 +147,54 @@ def create_service_now_incident(summary, description, affected_user_id, configur
     return None, None
 
 
+def create_service_now_request(summary, description, affected_user_id, ):
+    incident_api_url = f"https://{service_now_instance}/api/now/table/{service_now_table}"
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    payload = {
+        "u_type": 'request',
+        "u_requested_by_user_id": affected_user_id,
+        "u_affected_user_id": affected_user_id,
+        "u_phone": '123-456-7890',
+        "u_email": 'pacstest@adventhealth.com',
+        "u_catalog_item": request_catalog_item,
+        "u_description": request_u_description,
+        "u_variables": f"short_description::{summary}::description::{description}::phone::123-456-7890::fax::value::affected_user"
+                       f"::{affected_user_id}::email::pacstest@adventhealth.com::requester::{affected_user_id}::requester_location"
+                       f"::::affected_user_location::"
+
+    }
+
+    try:
+        print("Incident Creation Payload:", payload)  # Print payload for debugging
+        response = requests.post(
+            incident_api_url,
+            headers=headers,
+            auth=(service_now_api_user, service_now_api_password),
+            json=payload,
+        )
+
+        print("Incident Creation Response Status Code:", response.status_code)  # Print status code for debugging
+        print("Incident Creation Response Content:", response.text)  # Print response content for debugging
+
+        if response.status_code == 201:
+            incident_number = response.json().get("result", {}).get("u_task_string")
+            sys_id = response.json().get('result', {}).get('u_task', {}).get('value')
+            print(f"ServiceNow incident created successfully: {incident_number} {sys_id}")
+            return incident_number, sys_id
+        else:
+            print(f"Failed to create ServiceNow incident. Response: {response.text}")
+
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while creating ServiceNow incident: {e}")
+
+    return None, None
+
+
 
 def attach_file_to_incident(incident_number, file_path):
     
@@ -229,8 +280,8 @@ for root, _, files in os.walk(source_folder):
                 local_time_str = local_time.strftime('%Y-%m-%d %H:%M:%S')
                 subject = f"Client Error Report for {computer_name} at {local_time_str} (Ticket Creation Failure)"
                 body = f"Content of comment.txt:\n{comment_content}\nUserID: {user_code}\nWorkstation: {computer_name}"
-                incident_summary = f"Client Error Report for {computer_name} at {local_time_str}"
-                incident_description = body
+                ticket_summary = f"Client Error Report for {computer_name} at {local_time_str}"
+                ticket_description = body
                 affected_user_id = user_code
                 device_name = computer_name
                 external_unique_id = str(uuid.uuid4())
@@ -242,19 +293,28 @@ for root, _, files in os.walk(source_folder):
                     subject = f"Client Error Report for {computer_name} at {local_time_str} (Ticket Exclusion)"
                     send_email(smtp_recipients, subject, body)
                     continue                  
-
-                # Create ServiceNow incident and get the incident number
-                incident_number, sys_id = create_service_now_incident(
-                    incident_summary, incident_description,
-                    affected_user_id, configuration_item, external_unique_id,
-                    urgency, impact, device_name, ticket_type
-                )
+                if ticket_type == 'incident':
+                    # Create ServiceNow incident and get the incident number
+                    ticket_number, sys_id = create_service_now_incident(
+                        ticket_summary, ticket_description,
+                        affected_user_id, configuration_item, external_unique_id,
+                        urgency, impact, device_name, ticket_type
+                    )
+                elif ticket_type == 'request':
+                    # Create ServiceNow incident and get the incident number
+                    ticket_number, sys_id = create_service_now_incident(
+                        ticket_summary, ticket_description,
+                        affected_user_id
+                    )
+                    subject = f"Client Error Report for {computer_name} at {local_time_str} Ticket: {ticket_number}"
+                else:
+                    print('invalid ticket type')
 
                 # Attach the zip file to the ServiceNow incident
-                if incident_number and sys_id:
+                if ticket_type == 'incident' and ticket_number and sys_id:
                     zip_file_path = destination_path
                     attach_file_to_incident(sys_id, zip_file_path)
-                    subject = f"Client Error Report for {computer_name} at {local_time_str} Ticket: {incident_number}"
+                    subject = f"Client Error Report for {computer_name} at {local_time_str} Ticket: {ticket_number}"
                 
                 
                  #send email
