@@ -48,9 +48,9 @@ The script will process error reports, create incidents in ServiceNow, and send 
 
 4. **Email Sending**: Send email notifications with error report details.
 
-5. **ServiceNow Incident Creation**: Create incidents in ServiceNow with relevant details.
+5. **ServiceNow Ticket Creation**: Create Tickets in ServiceNow with relevant details.
 
-6. **Attachment Handling**: Attach the error report file to the created ServiceNow incident.
+6. **Attachment Handling**: Attach the error report file to the created ServiceNow Ticket.
 
 7. **Processing Loop**: The script processes each error report found in the source folder.
 
@@ -66,6 +66,3 @@ You can specify computer names and user codes to be excluded from ServiceNow pro
 
 For any issues or questions, please create an issue in the [GitHub repository](https://github.com/mrjmc99/agfa-ei-client-error-reports/).
 
-```
-
-Make sure to replace "yourusername" and "yourrepository" with your actual GitHub username and repository name. Also, consider providing more detailed instructions or explanations based on your specific use case and audience.
