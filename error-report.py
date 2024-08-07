@@ -201,16 +201,17 @@ def create_service_now_request(summary, description, affected_user_id, ):
 
 
 def attach_file_to_ticket(sys_id, file_path):
-    attachment_api_url = f"https://{service_now_instance}/api/now/attachment/file"
+    attachment_api_url = f"https://{service_now_instance}/api/now/attachment/upload"
 
     headers = {
         "Accept": "application/json",
-        "Content-Type": "application/zip"
     }
 
     data = {
+        "Content-Type": "application/octet-stream",
         "table_name": service_now_attachment_table,
         "table_sys_id": sys_id,
+        "filename": os.path.basename(file_path),
     }
 
     files = {
@@ -219,6 +220,7 @@ def attach_file_to_ticket(sys_id, file_path):
 
     try:
         print("Sending attachment request...")
+        print("Headers:", headers)
         print("Data:", data)
         print("Files:", files)
         attachment_response = requests.post(
