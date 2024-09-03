@@ -12,11 +12,13 @@ import configparser
 # Load configuration from the file
 config = configparser.ConfigParser()
 config.read("error-report-config.ini")
-# agfa variables
 
+# agfa variables
 error_report_repo = config.get("Agfa", "error_report_repo")
 source_folder = config.get("Agfa", "source_folder")
 search_term = config.get("Agfa", "search_term")
+ERA_server = config.get("Agfa", "ERA_server")
+use_ERA = config.get("Agfa", "use_ERA")
 
 # email variables
 smtp_server = config.get("Email", "smtp_server")
@@ -242,6 +244,38 @@ def attach_file_to_ticket(sys_id, file_path):
     except requests.exceptions.RequestException as e:
         print(f"An error occurred while attaching the file to ServiceNow Ticket: {e}")
 
+def send_file_to_ERA(file_path):
+    ERA_api_url = f"https://{ERA_server}/"
+
+    headers = {
+        "Accept": "application/json",
+    }
+
+    files = {
+        'file': (os.path.basename(file_path), open(file_path, 'rb')),
+    }
+
+    try:
+        print("Sending Client Error Report to ERA request...")
+        print("Headers:", headers)
+        print("Files:", files)
+        ERA_response = requests.post(
+            ERA_api_url,
+            headers=headers,
+            files=files,
+        )
+
+        print("ERA Processing response status code:", ERA_response.status_code)
+        print("ERA Processing response text:", ERA_response.text)
+
+        if ERA_response.status_code == 201:
+            print("ERA Processing successful")
+        else:
+            print(f"Failed to complete ERA Processing. Response: {ERA_response.text}")
+
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while Processing ERA: {e}")
+
 
 if not os.path.exists(error_report_repo):
     os.makedirs(error_report_repo)
@@ -320,6 +354,9 @@ for root, _, files in os.walk(source_folder):
                     zip_file_path = destination_path
                     attach_file_to_ticket(sys_id, zip_file_path)
                     subject = f"Client Error Report for {computer_name} at {local_time_str} Ticket: {ticket_number}"
+
+                # Send error report zip to ERA server
+                send_file_to_ERA(zip_file_path)
 
                 # send email
                 send_email(smtp_recipients, subject, body)

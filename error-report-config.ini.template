@@ -4,7 +4,8 @@ error_report_repo = E:\\error-report-repo
 ;typical agfa ei install source folder
 source_folder = C:\\Agfa\\IMPAX_Agility\\error-report
 search_term = comment
-
+ERA_server =
+use_ERA =
 [Email]
 smtp_server = 
 smtp_port = 
