@@ -8,6 +8,8 @@ from time import sleep
 import requests
 import uuid
 import configparser
+import re
+import subprocess
 
 # Load configuration from the file
 config = configparser.ConfigParser()
@@ -18,7 +20,8 @@ error_report_repo = config.get("Agfa", "error_report_repo")
 source_folder = config.get("Agfa", "source_folder")
 search_term = config.get("Agfa", "search_term")
 ERA_server = config.get("Agfa", "ERA_server")
-use_ERA = config.get("Agfa", "use_ERA")
+use_ERA = config.get("Agfa", "use_ERA").lower() == "true"
+
 
 # email variables
 smtp_server = config.get("Email", "smtp_server")
@@ -244,37 +247,74 @@ def attach_file_to_ticket(sys_id, file_path):
     except requests.exceptions.RequestException as e:
         print(f"An error occurred while attaching the file to ServiceNow Ticket: {e}")
 
-def send_file_to_ERA(file_path):
-    ERA_api_url = f"https://{ERA_server}/"
 
-    headers = {
-        "Accept": "application/json",
-    }
-
-    files = {
-        'file': (os.path.basename(file_path), open(file_path, 'rb')),
-    }
+def send_file_to_ERA_with_curl(file_path):
+    curl_command = [
+        "curl", "-k", "-F", f"file=@{file_path}",
+        f"https://{ERA_server}:8443/"
+    ]
 
     try:
-        print("Sending Client Error Report to ERA request...")
-        print("Headers:", headers)
-        print("Files:", files)
-        ERA_response = requests.post(
-            ERA_api_url,
-            headers=headers,
-            files=files,
-        )
+        print("Sending Client Error Report to ERA using curl...")
+        curl_response = subprocess.run(curl_command, capture_output=True, text=True)
 
-        print("ERA Processing response status code:", ERA_response.status_code)
-        print("ERA Processing response text:", ERA_response.text)
+        if curl_response.returncode == 0:
+            print("Curl response received.")
+            response_text = curl_response.stdout
+            #print("Response Text:", response_text)
 
-        if ERA_response.status_code == 201:
-            print("ERA Processing successful")
+            # Extract the uid using regex
+            uid_match = re.search(r'<div class="uid"[^>]*>([^<]+)</div>', response_text)
+            if uid_match:
+                uid = uid_match.group(1)
+                #print(f"Extracted UID: {uid}")
+                era_url = f"https://{ERA_server}:8443/getResult/?uid={uid}"
+                print(era_url)
+                return era_url
+            else:
+                print("UID not found in the response.")
+                return None
         else:
-            print(f"Failed to complete ERA Processing. Response: {ERA_response.text}")
+            print(f"Failed to execute curl. Return code: {curl_response.returncode}")
+            print("Error Output:", curl_response.stderr)
+            return None
 
-    except requests.exceptions.RequestException as e:
-        print(f"An error occurred while Processing ERA: {e}")
+    except Exception as e:
+        print(f"An error occurred while executing curl: {e}")
+        return None
+
+
+
+def send_file_to_ERA(file_path):
+    def send_file_to_ERA(file_path):
+        ERA_api_url = f"https://{ERA_server}:8443/"
+        print(ERA_api_url)
+
+        files = {
+            'file': (os.path.basename(file_path), open(file_path, 'rb'), "application/x-zip-compressed"),
+        }
+
+        try:
+            print("Sending Client Error Report to ERA request...")
+            ERA_response = requests.post(
+                ERA_api_url,
+                files=files,
+                verify=False
+            )
+
+            print("ERA Processing response status code:", ERA_response.status_code)
+            print("ERA Processing response text:", ERA_response.text)
+
+            if ERA_response.status_code == 200:
+                print("ERA Processing successful")
+            else:
+                print(f"Failed to complete ERA Processing. Response: {ERA_response.text}")
+
+        except requests.exceptions.RequestException as e:
+            print(f"An error occurred while Processing ERA: {e}")
+        finally:
+            files['file'][1].close()  # Make sure to close the file after the request
+
 
 
 if not os.path.exists(error_report_repo):
@@ -323,7 +363,11 @@ for root, _, files in os.walk(source_folder):
                 affected_user_id = user_code
                 device_name = computer_name
                 external_unique_id = str(uuid.uuid4())
-
+                # Send zip to ERA if enabled
+                if use_ERA:
+                    era_url = send_file_to_ERA_with_curl(destination_path)
+                    if era_url:
+                        body += f"\n\nERA Url= {era_url}"
                 # Check if the item should be excluded
                 if affected_user_id and affected_user_id.lower() in [code.lower() for code in excluded_user_codes] or \
                         computer_name.lower() in [name.lower() for name in excluded_computer_names]:
@@ -355,8 +399,7 @@ for root, _, files in os.walk(source_folder):
                     attach_file_to_ticket(sys_id, zip_file_path)
                     subject = f"Client Error Report for {computer_name} at {local_time_str} Ticket: {ticket_number}"
 
-                # Send error report zip to ERA server
-                send_file_to_ERA(zip_file_path)
+
 
                 # send email
                 send_email(smtp_recipients, subject, body)
