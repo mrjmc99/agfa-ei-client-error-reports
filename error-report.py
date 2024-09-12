@@ -11,9 +11,15 @@ import configparser
 import re
 import subprocess
 
-# Load configuration from the file
+# Get the absolute path of the script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Construct the absolute path of the configuration file
+config_file_path = os.path.join(script_dir, "error-report-config.ini")
+
+# Load the configuration file
 config = configparser.ConfigParser()
-config.read("error-report-config.ini")
+config.read(config_file_path)
 
 # agfa variables
 error_report_repo = config.get("Agfa", "error_report_repo")
